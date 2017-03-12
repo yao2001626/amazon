@@ -1,0 +1,593 @@
+\section{Question 1: Duplicate}
+
+\subsection{Analysis}
+
+Suppose $rows$ is the number of rows and $dist$ is the maximum distance. A
+primitive method is to scan the neighbors within distance $dist$ of each
+element and compare. A minor optimization is to only check the right half of
+neighbors, which eliminates redundant checks. The space complexity would be
+$O(rows^2)$. When $dist < rows$ the time complexity is $O(rows^2 * dist^2)$,
+and when $dist \geq m$ the time complexity is $O(rows^4)$.
+
+The time complexity can be reduced by using a HashMap, where each key is an
+integer that has been encountered, and each value is a linked list storing all
+corresponding coordinates in the past $d$ rows. Additional space is required
+for up to $rows^2$ keys and up to $rows^2$ coordinate nodes. When $0 < dist <
+rows$, each node needs to be compared with at most roughly $2 * rows / dist$
+nodes, thus the time complexity is $O(rows^3 / dist)$. When $dist \geq rows$,
+each node needs to be compared with at most 4 nodes, so the time complexity is
+$O(rows^2)$.
+
+I thought about using HashMap while doing it online, but was afraid that there
+would not be enough time to work out the details of the linked list. However it
+turned out that dealing with the boundaries while applying a more primitive
+method actually consumed quite a lot of time, and a few mistakes prevented it
+from working properly.
+
+\subsection{Java Code}
+
+The structure of class $Duplicate$:
+<<src/duplicate/Duplicate.java>>=
+package duplicate;
+
+import java.util.HashMap;
+import java.util.Scanner;
+
+public class Duplicate {
+
+    <<Coordinate Node Class>>
+
+    <<HashMap Insertion>>
+
+    <<Duplicate Check>>
+
+    <<Matrix Output>>
+
+    <<Duplicate Main>>
+
+}
+@
+The main function:
+<<Duplicate Main>>=
+    public static void main(String[] args) {
+        // reads in rows, matrix, and dist
+        Scanner sc = new Scanner(System.in);
+        int rows = sc.nextInt(); // number of rows
+        int[][] matrix = new int[rows][];
+        for (int i = 0; i < rows; i++) {
+            matrix[i] = new int[rows];
+            for (int j = 0; j < rows; j++) {
+                matrix[i][j] = sc.nextInt();
+            }
+        }
+        int dist = sc.nextInt(); // maximum distantce
+        sc.close();
+        System.out.println(hasDuplicateInDist(matrix, dist) ? "YES" : "NO");
+    }
+@
+Matrix output:
+<<Matrix Output>>=
+    /**
+     * Outputs an integer matrix.
+     * @param matrix the integer matrix
+     */
+    public static void outputMatrix(int[][] matrix) {
+        for (int i = 0; i < matrix.length; i++) {
+            for (int j = 0; j < matrix[i].length; j++) {
+                System.out.print(matrix[i][j] + (j < matrix[i].length - 1 ? " " : ""));                
+            }
+            System.out.println();
+        }
+    }
+@
+<<Coordinate Node Class>>=
+    /**
+     * Coordinate node class.
+     */
+    public static class cNode {
+        int row, column;
+        cNode next;
+
+        /**
+         * Default constructor.
+         */
+        public cNode() {
+            this.row = 0;
+            this.column = 0;
+            this.next = null;
+        }
+
+        /**
+         * Constructor with coordinates.
+         */
+        public cNode(int row, int column) {
+            this.row = row;
+            this.column = column;
+            this.next = null;
+        }
+
+        /**
+         * Calculates distance to another node
+         */
+        public int dist(cNode node) {
+            return Math.abs(this.row - node.row) + Math.abs(this.column - node.column);
+        }
+
+    }
+@
+Here is the method that inserts all elements and checks for duplicates.
+<<Duplicate Check>>=
+    /**
+     * Checks if there are two elements in a matrix
+     * with distance less than a given integer.
+     */
+    public static boolean hasDuplicateInDist(int[][] matrix, int dist) {
+        int rows = matrix.length;
+        HashMap<Integer, cNode> map = new HashMap<Integer, cNode>();
+        // inserts and checks all elements
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < rows; j++) {
+                if (insertAndCheck(map, matrix[i][j], new cNode(i, j), i, dist)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+@
+This method inserts a coordinate into a HashMap and checks for duplicate.
+<<HashMap Insertion>>=
+    /**
+     * Inserts a coordinate node to a HashMap, 
+     * and checks its distance with previous coordinates.
+     * @param  map        the HashMap
+     * @param  key        the integer key
+     * @param  currentRow the index of current row
+     * @param  dist       maximum distance
+     * @return <tt>true</tt> only when it is square.
+     */
+    public static boolean insertAndCheck(HashMap<Integer, cNode> map, int key, cNode newNode, int currentRow, int dist) {
+        if (map.containsKey(key)) { // already encountered
+            cNode head = map.get(key);
+            // remove nodes not in the past dist rows
+            while (head != null && head.row < currentRow - dist) {
+                head = head.next;
+            }
+            if (head == null) { // linked list empty
+                head = newNode;
+            } else { // linked list not empty
+                cNode cursor = head;
+                // check the distances with nodes in the linked list
+                while (cursor.next != null) {
+                    if (newNode.dist(cursor) <= dist) {
+                        return true;
+                    }
+                    cursor = cursor.next;
+                }
+                // if found
+                if (newNode.dist(cursor) <= dist) {
+                    return true;
+                }
+                // insert to the tail
+                cursor.next = newNode;
+            }
+            // update map
+            map.put(key, head);
+        } else { // not encounted yet
+            map.put(key, newNode);
+        }
+        // not found
+        return false;
+    }
+@
+\subsection{Test Cases}
+<<duplicate0.txt>>=
+0
+0
+@
+<<duplicate1.txt>>=
+1
+1
+1
+@
+<<duplicate2-0.txt>>=
+2
+1 2
+3 4
+2
+@
+<<duplicate2-1.txt>>=
+2
+1 2
+3 1
+2
+@
+<<duplicate2-2.txt>>=
+2
+1 2
+2 4
+2
+<<duplicate2-3.txt>>=
+2
+1 2
+3 1
+1
+@
+<<duplicate2-4.txt>>=
+2
+1 2
+2 4
+1
+@
+<<duplicate5-0.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+21 22 23 24 25
+5
+@
+<<duplicate5-1.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+21 22 23 24 1
+8
+@
+<<duplicate5-2.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+5 22 23 24 25
+8
+@
+<<duplicate5-3.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+21 22 23 24 1
+4
+@
+<<duplicate5-4.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+5 22 23 24 25
+4
+@
+<<duplicate5-5.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+1 22 23 24 25
+4
+@
+<<duplicate5-6.txt>>=
+5
+1 2 3 4 1
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+21 22 23 24 25
+4
+@
+<<duplicate5-7.txt>>=
+5
+1 2 3 4 25
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+21 22 23 24 25
+4
+@
+<<duplicate5-8.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+25 22 23 24 25
+4
+@
+<<duplicate5-9.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 2
+11 12 13 14 15
+2 17 18 19 20
+21 22 23 2 25
+4
+@
+<<duplicate5-10.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 2
+11 12 13 14 15
+2 17 18 19 20
+21 22 23 2 25
+3
+@
+<<duplicate5-11.txt>>=
+5
+1 2 3 4 1
+6 7 8 9 2
+11 12 1 14 15
+2 17 18 19 20
+1 22 23 2 1
+4
+@
+<<duplicate5-12.txt>>=
+5
+1 2 3 4 1
+6 7 8 9 2
+11 12 1 14 15
+2 17 18 19 20
+1 22 23 2 1
+3
+<<duplicate5-13.txt>>=
+5
+1 1 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+21 22 23 24 25
+3
+<<duplicate5-14.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+21 22 23 25 25
+3
+@
+\section{Question 2: Rotate Array}
+
+\subsection{Analysis}
+
+Suppose $rows$ is the number of rows. The matrix squareness check can be done
+when reading each row, by comparing the number of integers in the current row
+with $rows$.
+
+For a square matrix, a primitive method would read it in, apply the rotation,
+and output the result. Its time complexity and space complexity are both
+$O(rows^2)$. Each element is read once (before moving) and written twice
+(initializing and after moving, once each). If we want to have a general
+matrix-to-matrix operation they are optimal. This was what I used when doing it
+online, but the time was not enough to take care of the details.
+
+However, if we consider to make the solution specifically as a stream-to-stream
+operation, the time complexity can be easily reduced by calculating the new
+coordinates of each element while reading from the input stream, and store the
+element directly to the new location. The operation on each element is reduced
+to just writing once. The time complexity and space complexity remain
+$O(rows^2)$.
+
+The structure of a square matrix with odd $rows$ is:\\
+\begin{figure}[hbtp]
+\begin{verbatim}
+1 1 1 1 2
+4 1 1 2 2
+4 4 5 2 2
+4 4 3 3 2
+4 3 3 3 3
+\end{verbatim}
+\end{figure}\\
+Elements in area 1 - 4 are supposed to shift right / down / left / up
+respectively. The element in area 5 is the center and does not shift.
+
+When $rows$ is even there is no area 5:\\
+\begin{figure}[hbtp]
+\begin{verbatim}
+1 1 1 2
+4 1 2 2
+4 4 3 2
+4 3 3 3
+\end{verbatim}
+\end{figure}\\
+They can be further divided in the implementation. When $rows$ is odd:\\
+\begin{figure}[hbtp]
+\begin{verbatim}
+  1 1 1 1   2
+4   1 1   2 2
+
+4 4   5   2 2
+
+4 4   3 3   2
+4   3 3 3 3
+\end{verbatim}
+\end{figure}\\
+When $rows$ is even:\\
+\begin{figure}[hbtp]
+\begin{verbatim}
+  1 1 1   2
+4   1   2 2
+
+4 4   3   2
+4   3 3 3
+\end{verbatim}
+\end{figure}\\
+
+To further optimize, it can be observed that the each row of the result matrix
+solely depends on up to three rows in the source matrix: the previous row, the
+current row, and the next row. A $3 \times rows$ matrix is all the space
+required for buffering, and the space complexity is reduced to $O(rows)$. The
+output of each result row can be completed as soon as the area 1 of the next
+row has been processed. When $rows$ is large, the space is reduced
+significantly, as well as the delay between I/O streams.
+
+This algorithm also has the potential of being modified into parallel algorithm
+that operates on a matrix. Additional space is required though.
+
+\subsection{Java Code}
+
+The structure of class $RotateArray$:
+<<src/rotate/RotateArray.java>>=
+package rotate;
+
+import java.util.*;
+
+public class RotateArray {
+
+    <<Input Rotate and Output>>
+
+    <<Rotate Main>>
+
+}
+@
+The main function:
+<<Rotate Main>>=
+    public static void main(String[] args) {
+        if (!inputRotateAndOutput()) {
+            System.out.println("ERROR");
+        }
+    }
+@
+This method is to input, rotate and output.
+<<Input Rotate and Output>>=
+    /**
+      * Reads from input stream, and outputs the result of rotation.
+      * Returns true when it is square, and false when not.
+      */
+    public static boolean inputRotateAndOutput() {
+        Scanner sc = new Scanner(System.in);
+        int rows = sc.nextInt(); // number of rows
+        int halfRows = rows / 2; // half number of rows
+        int prev = 2, curr = 0, next = 1; // three row indices for rotation
+        int[][] matrix = new int[3][]; // three rows
+        String line = sc.nextLine(); // consumes the first link break
+        String[] intStrings; // integers in the form of strings
+        // initializes matrix
+        for (int i = 0; i < 3; i++) {
+            matrix[i] = new int[rows];
+        }
+        // inputs, rotates and outputs 
+        for (int i = 0; i < rows; i++) { // row index
+            line = sc.nextLine(); // reads in a line
+            intStrings = line.split(" "); // split by spaces
+            if (intStrings.length == rows) { // if still square
+                if (i < halfRows) { // upper half
+                    // area 4, shift up
+                    for (int j = 0; j < i; j++) { // column index
+                        matrix[prev][j] = Integer.parseInt(intStrings[j]);
+                    }
+                    // outputs the previous row
+                    if (i > 0) {
+                        for (int j = 0; j < rows; j++) { // column index
+                            System.out.print(matrix[prev][j] + (j < rows - 1 ? " " : ""));                
+                        }
+                        System.out.println();
+                    }
+                    // area 1, shift right
+                    for (int j = i; j < rows - i - 1; j++) { // column index
+                        matrix[curr][j + 1] = Integer.parseInt(intStrings[j]);
+                    }
+                    // area 2, shift down
+                    for (int j = rows - i - 1; j < rows; j++) { // column index
+                        matrix[next][j] = Integer.parseInt(intStrings[j]);
+                    }
+                } else if (i > rows - halfRows - 1)  { // lower half
+                    // area 4, shift up
+                    for (int j = 0; j < rows - i; j++) { // column index
+                        matrix[prev][j] = Integer.parseInt(intStrings[j]);
+                    }
+                    // outputs the previous row
+                    if (i > 0) {
+                        for (int j = 0; j < rows; j++) { // column index
+                            System.out.print(matrix[prev][j] + (j < rows - 1 ? " " : ""));                
+                        }
+                        System.out.println();
+                    }
+                    // area 3, shift left
+                    for (int j = rows - i; j < i + 1; j++) { // column index
+                        matrix[curr][j - 1] = Integer.parseInt(intStrings[j]);
+                    }
+                    // area 2, shift down
+                    for (int j = i + 1; j < rows; j++) { // column index
+                        matrix[next][j] = Integer.parseInt(intStrings[j]);
+                    }                    
+                } else { // mid row
+                    for (int j = 0; j < halfRows; j++) {
+                        // area 4, shift up
+                        matrix[prev][j] = Integer.parseInt(intStrings[j]);
+                    }
+                    // outputs the previous row
+                    if (i > 0) {
+                        for (int j = 0; j < rows; j++) { // column index
+                            System.out.print(matrix[prev][j] + (j < rows - 1 ? " " : ""));                
+                        }
+                        System.out.println();
+                    }
+                    // area 5, no shift
+                    matrix[curr][i] = Integer.parseInt(intStrings[i]);
+                    for (int j = halfRows + 1; j < rows; j++) {
+                        // area 2, shift down
+                        matrix[next][j] = Integer.parseInt(intStrings[j]);
+                    }
+                }
+            } else {
+                sc.close();
+                return false;
+            }
+            // rotates the rows
+            curr = next;
+            next = prev;
+            prev = 3 - curr - next;
+        }
+        // outputs the last row
+        for (int j = 0; j < rows; j++) { // column index
+            System.out.print(matrix[prev][j] + (j < rows - 1 ? " " : ""));                
+        }
+        System.out.println();
+        sc.close();
+        return true;
+    }
+@
+\subsection{Test Cases}
+
+<<rotate0.txt>>=
+0
+@
+<<rotate1.txt>>=
+1
+1
+@
+<<rotate2.txt>>=
+2
+1 2
+3 4
+@
+<<rotate5.txt>>=
+5
+1 2 3 4 5
+6 7 8 9 10
+11 12 13 14 15
+16 17 18 19 20
+21 22 23 24 25
+@
+<<rotate6.txt>>=
+6
+1 2 3 4 5 6
+7 8 9 10 11 12
+13 14 15 16 17 18
+19 20 21 22 23 24
+25 26 27 28 29 30
+31 32 33 34 35 36
+@
+<<rotate error.txt>>=
+2
+1 2
+3 4 5
+@
+\end{document}
